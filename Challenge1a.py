@@ -1,5 +1,6 @@
 import datetime
 import os
+
 from pathlib import Path
 from typing import Optional
 
@@ -143,6 +144,9 @@ def test_exercise_implementation():
 
 def plot_fitness(full_f, output_dir):
     """Save a fitness-over-generations plot to the checkpoint directory."""
+    # Use a non-interactive backend so plotting works in headless environments
+    import matplotlib
+    matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     fitness_array = np.array(full_f)  # (n_generations, n_pop)
@@ -280,7 +284,10 @@ def run_evolution_neural_controller(
             while True:
                 action = evaluation_controller.get_action(obs)
                 obs, reward, terminated, truncated, _ = evaluation_env.step(action)
-                trial_reward += reward
+
+                # Ensure reward is a scalar (some environments return arrays)
+                reward_scalar = float(np.asarray(reward).item() if np.asarray(reward).ndim > 0 else reward)
+                trial_reward += reward_scalar
 
                 if np.logical_or(terminated, truncated):
                     trial_count += 1
@@ -436,20 +443,20 @@ if __name__ == "__main__":
 
     # Uncomment to run full evolution:
     run_evolution_neural_controller(
-        num_generations=100,
-        population_size=10,
-        ckpt_interval=5,
-        checkpoint_path=None,
-        run_evaluation=True,
-        compute_score=True,
-        random_seed=42,
-    )
+         num_generations=300,
+         population_size=200,
+         ckpt_interval=5,
+         checkpoint_path=None,
+         run_evaluation=True,
+         compute_score=True,
+         random_seed=42,
+     )
 
     # ----------------------------------------------------------------
     # EVALUATION: Uncomment the lines below to evaluate your checkpoint
     # on the standard Gymnasium Ant-v5 and get your final score + video.
     # Replace the path with your actual checkpoint folder.
     # ----------------------------------------------------------------
-    # evaluate_checkpoint(
-    #     checkpoint_dir="results/20260304_174619_neural_controller_ckpts",
-    # )
+    evaluate_checkpoint(
+        checkpoint_dir="results/20260319_112139_neural_controller_ckpts/299",
+    )

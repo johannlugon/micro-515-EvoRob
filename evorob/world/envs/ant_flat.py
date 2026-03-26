@@ -82,7 +82,7 @@ class AntFlatEnvironment(MujocoEnv):
         x_velocity, y_velocity = xy_velocity
 
         observation = self._get_obs()
-        reward, reward_info = self._get_rew(x_velocity, action)
+        reward, reward_info = self._get_rew(x_velocity, y_velocity,action)
         terminated = self._get_termination()
         info = {
             "x_position": self.data.qpos[0],
@@ -104,15 +104,38 @@ class AntFlatEnvironment(MujocoEnv):
         # - velocity: self.data.qvel.flatten() (14 values)
         # This gives 27 total dimensions, making the task translation-invariant
         # Hint: Use np.concatenate() to combine both arrays
+        position = self.data.qpos[2:].flatten()
+        velocity = self.data.qvel.flatten()
+        return np.concatenate((position, velocity))
         raise NotImplementedError("TODO: Implement observation function")
 
-    def _get_rew(self, x_velocity: float, action):
+    def _get_rew(self, x_velocity: float, y_velocity: float, action):
         # TODO: Implement reward function with three components:
         # 1. forward_reward = ...
         # 2. healthy_reward = ...
         # 3. ctrl_cost = ...
         # Final reward is the sum of these three components.
         # Return: (reward, reward_info_dict)
+        x_position = self.data.qpos[0]
+        y_position = self.data.qpos[1]
+        
+        reward_forward = 0.9 * max(0,x_velocity)
+        penalise_lateral = -0.2 * abs(y_velocity)  # Penalize deviation from y=0
+        reward_healthy = 1.0 * int(self._get_termination() == False)  # Constant reward for being healthy
+        ctrl_cost = -(0.01) * np.sum(action**2) # Control cost
+
+        #print(f"Reward components: forward={reward_forward:.3f}, healthy={reward_healthy:.3f}, ctrl_cost={ctrl_cost:.3f}, penalize_cost={penalise_lateral:.3f}")
+
+        # Added commas here:
+        reward_info_dict = {
+            "reward_forward": reward_forward,
+            "reward_survive": reward_healthy,
+            "reward_ctrl": ctrl_cost,
+            "reward_penalise_lateral": penalise_lateral,
+        }
+        reward = reward_forward + reward_healthy + ctrl_cost + penalise_lateral
+        
+        return reward, reward_info_dict
         raise NotImplementedError("TODO: Implement reward function")
 
     def _get_termination(self):
@@ -120,4 +143,8 @@ class AntFlatEnvironment(MujocoEnv):
         # - Torso height is below 0.26 or above 1.0
         # Return True if NOT healthy (i.e., should terminate)
         # Hint: Use self.state_vector() to get current state.
+        torso_height = self.state_vector()[2]  # Assuming body ID 1 is the torso
+        if torso_height < 0.26 or torso_height > 1.0:
+            return True
+        return False
         raise NotImplementedError("TODO: Implement termination function")
